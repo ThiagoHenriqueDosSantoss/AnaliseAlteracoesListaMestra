@@ -1,3 +1,5 @@
+import time
+
 import pandas as pd
 import re
 from tqdm import tqdm
@@ -73,11 +75,14 @@ def contagem_FA(df):
 def contagem_INC(df):
     criterio = "Inclusão de item"
     return df['Alteração Simplificada'].value_counts().get(criterio, 0)
-def gerar_nome_saida(base="HALM", extensao=".xlsx"):
-    contador = 1
-    while os.path.exists(f"{base}{contador}{extensao}"):
+def gerar_nome_saida(caminhoSaida,base="HALM", extensao=".xlsx"):
+    contador = 0
+    os.makedirs(caminhoSaida, exist_ok=True)
+    while True:
         contador += 1
-    return f"{base}{contador}{extensao}"
+        caminho_completo = os.path.join(caminhoSaida, f"{base}{contador}{extensao}")
+        if not os.path.exists(caminho_completo):
+            return caminho_completo
 
 def gerar_analise():
     try:
@@ -89,7 +94,7 @@ def gerar_analise():
         df = valida_data(df,dataIni,dataFim)
 
         print("Colunas disponíveis:", df.columns.tolist())
-
+        print("\nA N Á L I S A N D O . . .")
         df = df.dropna(axis=1, how='all')
         df = df.dropna(axis=0, how='all')
 
@@ -111,10 +116,14 @@ def gerar_analise():
         df["Inclusão de item"] = ""
         df.at[0,"Inclusão de item"] = contagem_INC(df)
 
-        arquivoSaida = gerar_nome_saida()
+        caminhoSaida = "C:/Users/thiago.santos/PycharmProjects/pythonProject1/AnaliseAlteracoesListaMestra"
+        arquivoSaida = gerar_nome_saida(caminhoSaida)
         df.to_excel(arquivoSaida, index=False)
 
         print("✅ Análise Completa!", f"Arquivo gerado: {arquivoSaida}")
+        print("E N C E R R A N D O . . .")
+        time.sleep(10)
+        exit()
     except Exception as e:
         print("Erro durante a execução da análise:", str(e))
 
