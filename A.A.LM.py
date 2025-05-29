@@ -3,66 +3,14 @@ import re
 from openpyxl.reader.excel import load_workbook
 from tqdm import tqdm
 import os
+from datetime import datetime
 """
     Este script automatiza a análise do relatório MPOP218 (Histórico de alterações da Lista Mestra),
     realizando previamente os calculos necessários com base nos critérios fornecidos pelo relatório exportado
     do ERP Senior.
 """
 tqdm.pandas()
-def simplificar_descricao(descricao):
-    if pd.isna(descricao):
-        return ""
-    return re.sub(r" de .+? para .+", "", str(descricao))
-def contagem_QPA(df):
-    criterio = "Quantidade prevista alterada"
-    return df['Alteração Simplificada'].value_counts().get(criterio, 0)
-def contagem_DPA(df):
-    criterio = "Data do lote alterada"
-    return df['Alteração Simplificada'].value_counts().get(criterio, 0)
-def contagem_FA(df):
-    criterio = "Fase alterada"
-    return df['Alteração Simplificada'].value_counts().get(criterio, 0)
-def contagem_INC(df):
-    criterio = "Inclusão de item"
-    return df['Alteração Simplificada'].value_counts().get(criterio, 0)
-def gerar_nome_saida(base="HALM", extensao=".xlsx"):
-    contador = 1
-    while os.path.exists(f"{base}{contador}{extensao}"):
-        contador += 1
-    return f"{base}{contador}{extensao}"
-# Caminho do arquivo original exportado do ERP
-arquivoEntrada = "C:/Users/thiago.santos/Desktop/MPOP218.xlsx"
 
-df = pd.read_excel(arquivoEntrada, skiprows=2)
-
-print("Colunas disponíveis:", df.columns.tolist())
-
-df = df.dropna(axis=1, how='all')
-df = df.dropna(axis=0, how='all')
-
-if 'Alteração' in df.columns:
-    df['Alteração Simplificada'] = df['Alteração'].progress_apply(simplificar_descricao)
-else:
-    print("Coluna 'Alteração' não encontrada!")
-
-
-df["Quantidade prevista alterada"] = ""
-df.at[0, "Quantidade prevista alterada"] = contagem_QPA(df)
-
-df["Data do lote alterada"] = ""
-df.at[0,"Data do lote alterada"] = contagem_DPA(df)
-
-df["Fase alterada"] = ""
-df.at[0,"Fase alterada"] = contagem_FA(df)
-
-df["Inclusão de item"] = ""
-df.at[0,"Inclusão de item"] = contagem_INC(df)
-
-arquivoSaida = gerar_nome_saida()
-df.to_excel(arquivoSaida, index=False)
-
-print("Análise Completa!")
-"""
 ufvs = [
     "UFV ACOPIARA I E II",
     "UFV ALTA FLORESTA I A V",
@@ -173,4 +121,106 @@ ufvs = [
     "UFV VILA PAVÃO",
     "UFV VITORIA DA CONQUISTA I A V"
 ]
-"""
+
+numeroGrupo = input("Digite o número do grupo da usina para análise: ")
+dataIni = input("Digite a data inicial (no formato dd/mm/aaaa): ").strip()
+dataFim = input("Digite a data final (no formato dd/mm/aaaa): ").strip()
+
+try:
+    dataIni = datetime.strptime(dataIni, "%d/%m/%Y")
+    dataFim = datetime.strptime(dataFim, "%d/%m/%Y")
+except ValueError:
+    print("Formato de data inválido. Use dd/mm/aaaa.")
+
+def valida_data(df, dataIni, dataFim):
+    if 'Data' not in df.columns:
+        print("Coluna 'Data' não encontrada!")
+        print("Colunas disponíveis:", df.columns.tolist())
+        exit()
+
+    try:
+        df['Data'] = pd.to_datetime(df['Data'], dayfirst=True, errors='coerce')
+    except Exception as e:
+        print(f"Erro ao converter datas: {e}")
+        exit()
+
+    df = df.dropna(subset=['Data'])
+    dfData_filtrado = df[(df['Data'] >= dataIni) & (df['Data'] <= dataFim)]
+
+    if dfData_filtrado.empty:
+        print("❌ Nenhum registro encontrado dentro do período informado!")
+        exit()
+
+    print(f"✅ {len(dfData_filtrado)} registro(s) dentro do período de {dataIni.date()} até {dataFim.date()} encontrado(s).")
+    return dfData_filtrado
+def validar_grupo_usina(df, numeroGrupo):
+    if 'Usina' not in df.columns:
+        print("Coluna 'Usina' não encontrada no Excel!")
+        exit()
+
+    df_filtrado = df[df['Usina'].astype(str).str.contains(numeroGrupo)]
+
+    if df_filtrado.empty:
+        print(f"Nenhuma usina com grupo '{numeroGrupo}' encontrada na coluna 'Usina'.")
+        exit()
+
+    print(f"Usina(s) com grupo '{numeroGrupo}' encontrada(s)!")
+    return df_filtrado
+
+
+def simplificar_descricao(descricao):
+    if pd.isna(descricao):
+        return ""
+    return re.sub(r" de .+? para .+", "", str(descricao))
+def contagem_QPA(df):
+    criterio = "Quantidade prevista alterada"
+    return df['Alteração Simplificada'].value_counts().get(criterio, 0)
+def contagem_DPA(df):
+    criterio = "Data do lote alterada"
+    return df['Alteração Simplificada'].value_counts().get(criterio, 0)
+def contagem_FA(df):
+    criterio = "Fase alterada"
+    return df['Alteração Simplificada'].value_counts().get(criterio, 0)
+def contagem_INC(df):
+    criterio = "Inclusão de item"
+    return df['Alteração Simplificada'].value_counts().get(criterio, 0)
+def gerar_nome_saida(base="HALM", extensao=".xlsx"):
+    contador = 1
+    while os.path.exists(f"{base}{contador}{extensao}"):
+        contador += 1
+    return f"{base}{contador}{extensao}"
+# Caminho do arquivo original exportado do ERP
+arquivoEntrada = "C:/Users/thiago.santos/Desktop/MPOP218.xlsx"
+
+df = pd.read_excel(arquivoEntrada, skiprows=2)
+df = validar_grupo_usina(df, numeroGrupo)
+df = valida_data(df,dataIni,dataFim)
+
+print("Colunas disponíveis:", df.columns.tolist())
+
+df = df.dropna(axis=1, how='all')
+df = df.dropna(axis=0, how='all')
+
+if 'Alteração' in df.columns:
+    df['Alteração Simplificada'] = df['Alteração'].progress_apply(simplificar_descricao)
+else:
+    print("Coluna 'Alteração' não encontrada!")
+
+df.reset_index(drop=True, inplace=True)
+df["Quantidade prevista alterada"] = ""
+df.at[0, "Quantidade prevista alterada"] = contagem_QPA(df)
+
+df["Data do lote alterada"] = ""
+df.at[0,"Data do lote alterada"] = contagem_DPA(df)
+
+df["Fase alterada"] = ""
+df.at[0,"Fase alterada"] = contagem_FA(df)
+
+df["Inclusão de item"] = ""
+df.at[0,"Inclusão de item"] = contagem_INC(df)
+
+arquivoSaida = gerar_nome_saida()
+df.to_excel(arquivoSaida, index=False)
+
+print("Análise Completa!")
+
