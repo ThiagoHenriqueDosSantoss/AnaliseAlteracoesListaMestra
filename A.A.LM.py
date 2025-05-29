@@ -17,7 +17,7 @@ def contagem_QPA(df):
     criterio = "Quantidade prevista alterada"
     return df['Alteração Simplificada'].value_counts().get(criterio, 0)
 def contagem_DPA(df):
-    criterio = "Data do lote alterada alterada"
+    criterio = "Data do lote alterada"
     return df['Alteração Simplificada'].value_counts().get(criterio, 0)
 def contagem_FA(df):
     criterio = "Fase alterada"
@@ -45,18 +45,22 @@ if 'Alteração' in df.columns:
 else:
     print("Coluna 'Alteração' não encontrada!")
 
-criterios = {
-    "Quantidade prevista alterada": contagem_QPA(df),
-    "Data do lote alterada alterada": contagem_DPA(df),
-    "Fase alterada": contagem_FA(df),
-    "Inclusão de item": contagem_INC(df)
-}
 
-df_cabecalho = pd.DataFrame([criterios])
-df = pd.concat([df,df_cabecalho], ignore_index=True)
+df["Quantidade prevista alterada"] = ""
+df.at[0, "Quantidade prevista alterada"] = contagem_QPA(df)
+
+df["Data do lote alterada"] = ""
+df.at[0,"Data do lote alterada"] = contagem_DPA(df)
+
+df["Fase alterada"] = ""
+df.at[0,"Fase alterada"] = contagem_FA(df)
+
+df["Inclusão de item"] = ""
+df.at[0,"Inclusão de item"] = contagem_INC(df)
 
 arquivoSaida = gerar_nome_saida()
 df.to_excel(arquivoSaida, index=False)
+
 print("Análise Completa!")
 """
 ufvs = [
