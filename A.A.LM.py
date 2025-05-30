@@ -11,124 +11,141 @@ import os
     realizando previamente os calculos necessários com base nos critérios fornecidos pelo relatório exportado
     do ERP Senior.
 """
-tqdm.pandas()
+def main():
+    tqdm.pandas()
 
-numeroGrupo = input("Digite o número do grupo da usina para análise: ")
-dataIni = input("Digite a data inicial (no formato dd/mm/aaaa): ").strip()
-dataFim = input("Digite a data final (no formato dd/mm/aaaa): ").strip()
+    def valida_data(df, dataIni, dataFim):
+        if 'Data' not in df.columns:
+            time.sleep(3)
+            print("Coluna 'Data' não encontrada!")
+            time.sleep(3)
+            print("Colunas disponíveis:", df.columns.tolist())
+            exit()
 
-try:
-    dataIni = datetime.strptime(dataIni, "%d/%m/%Y")
-    dataFim = datetime.strptime(dataFim, "%d/%m/%Y")
-except ValueError:
-    print("Formato de data inválido. Use dd/mm/aaaa.")
+        try:
+            df['Data'] = pd.to_datetime(df['Data'], dayfirst=True, errors='coerce')
+        except Exception as e:
+            time.sleep(3)
+            print(f"Erro ao converter datas: {e}")
+            exit()
 
-def valida_data(df, dataIni, dataFim):
-    if 'Data' not in df.columns:
-        print("Coluna 'Data' não encontrada!")
-        print("Colunas disponíveis:", df.columns.tolist())
-        exit()
+        df = df.dropna(subset=['Data'])
+        dfData_filtrado = df[(df['Data'] >= dataIni) & (df['Data'] <= dataFim)]
 
-    try:
-        df['Data'] = pd.to_datetime(df['Data'], dayfirst=True, errors='coerce')
-    except Exception as e:
-        print(f"Erro ao converter datas: {e}")
-        exit()
+        if dfData_filtrado.empty:
+            time.sleep(3)
+            print("❌ Nenhum registro encontrado dentro do período informado!")
+            exit()
+        time.sleep(3)
+        print(f"✅ {len(dfData_filtrado)} registro(s) dentro do período de {dataIni.date()} até {dataFim.date()} encontrado(s).")
+        return dfData_filtrado
+    def validar_grupo_usina(df, numeroGrupo):
+        if 'Usina' not in df.columns:
+            print("Coluna 'Usina' não encontrada no Excel!")
+            exit()
 
-    df = df.dropna(subset=['Data'])
-    dfData_filtrado = df[(df['Data'] >= dataIni) & (df['Data'] <= dataFim)]
+        df_filtrado = df[df['Usina'].astype(str).str.contains(numeroGrupo)]
 
-    if dfData_filtrado.empty:
-        print("❌ Nenhum registro encontrado dentro do período informado!")
-        exit()
-
-    print(f"✅ {len(dfData_filtrado)} registro(s) dentro do período de {dataIni.date()} até {dataFim.date()} encontrado(s).")
-    return dfData_filtrado
-def validar_grupo_usina(df, numeroGrupo):
-    if 'Usina' not in df.columns:
-        print("Coluna 'Usina' não encontrada no Excel!")
-        exit()
-
-    df_filtrado = df[df['Usina'].astype(str).str.contains(numeroGrupo)]
-
-    if df_filtrado.empty:
-        print(f"Nenhuma usina com grupo '{numeroGrupo}' encontrada na coluna 'Usina'.")
-        exit()
-
-    print(f"Usina(s) com grupo '{numeroGrupo}' encontrada(s)!")
-    return df_filtrado
+        if df_filtrado.empty:
+            print(f"Nenhuma usina com grupo '{numeroGrupo}' encontrada na coluna 'Usina'.")
+            exit()
+        time.sleep(3)
+        print(f"Usina(s) com grupo '{numeroGrupo}' encontrada(s)!")
+        return df_filtrado
 
 
-def simplificar_descricao(descricao):
-    if pd.isna(descricao):
-        return ""
-    return re.sub(r" de .+? para .+", "", str(descricao))
-def contagem_QPA(df):
-    criterio = "Quantidade prevista alterada"
-    return df['Alteração Simplificada'].value_counts().get(criterio, 0)
-def contagem_DPA(df):
-    criterio = "Data do lote alterada"
-    return df['Alteração Simplificada'].value_counts().get(criterio, 0)
-def contagem_FA(df):
-    criterio = "Fase alterada"
-    return df['Alteração Simplificada'].value_counts().get(criterio, 0)
-def contagem_INC(df):
-    criterio = "Inclusão de item"
-    return df['Alteração Simplificada'].value_counts().get(criterio, 0)
-def gerar_nome_saida(caminhoSaida,base="HALM", extensao=".xlsx"):
-    contador = 0
-    os.makedirs(caminhoSaida, exist_ok=True)
-    while True:
-        contador += 1
-        caminho_completo = os.path.join(caminhoSaida, f"{base}{contador}{extensao}")
-        if not os.path.exists(caminho_completo):
-            return caminho_completo
+    def simplificar_descricao(descricao):
+        if pd.isna(descricao):
+            return ""
+        return re.sub(r" de .+? para .+", "", str(descricao))
+    def contagem_QPA(df):
+        criterio = "Quantidade prevista alterada"
+        return df['Alteração Simplificada'].value_counts().get(criterio, 0)
+    def contagem_DPA(df):
+        criterio = "Data do lote alterada"
+        return df['Alteração Simplificada'].value_counts().get(criterio, 0)
+    def contagem_FA(df):
+        criterio = "Fase alterada"
+        return df['Alteração Simplificada'].value_counts().get(criterio, 0)
+    def contagem_INC(df):
+        criterio = "Inclusão de item"
+        return df['Alteração Simplificada'].value_counts().get(criterio, 0)
+    def gerar_nome_saida(caminhoSaida,base="HALM", extensao=".xlsx"):
+        contador = 0
+        os.makedirs(caminhoSaida, exist_ok=True)
+        while True:
+            contador += 1
+            caminho_completo = os.path.join(caminhoSaida, f"{base}{contador}{extensao}")
+            if not os.path.exists(caminho_completo):
+                return caminho_completo
 
-def gerar_analise():
-    try:
-        # Caminho do arquivo original exportado do ERP
-        arquivoEntrada = "C:/Users/thiago.santos/Desktop/MPOP218.xlsx"
+    def gerar_analise():
+        while True:
+            try:
+                numeroGrupo = input("Digite o número do grupo da usina para análise: ")
+                time.sleep(1)
+                dataIni = input("Digite a data inicial (no formato dd/mm/aaaa): ").strip()
+                time.sleep(1)
+                dataFim = input("Digite a data final (no formato dd/mm/aaaa): ").strip()
 
-        df = pd.read_excel(arquivoEntrada, skiprows=2)
-        df = validar_grupo_usina(df, numeroGrupo)
-        df = valida_data(df,dataIni,dataFim)
+                try:
+                    dataIni = datetime.strptime(dataIni, "%d/%m/%Y")
+                    dataFim = datetime.strptime(dataFim, "%d/%m/%Y")
+                except ValueError:
+                    time.sleep(3)
+                    print("Formato de data inválido. Use dd/mm/aaaa.")
 
-        print("Colunas disponíveis:", df.columns.tolist())
-        print("\nA N Á L I S A N D O . . .")
-        df = df.dropna(axis=1, how='all')
-        df = df.dropna(axis=0, how='all')
+                # Caminho do arquivo original exportado do ERP
+                arquivoEntrada = "C:/Users/thiago.santos/PycharmProjects/pythonProject1/AnaliseAlteracoesListaMestra/MPOP218.xlsx"
 
-        if 'Alteração' in df.columns:
-            df['Alteração Simplificada'] = df['Alteração'].progress_apply(simplificar_descricao)
-        else:
-            print("Coluna 'Alteração' não encontrada!")
+                if not os.path.exists(arquivoEntrada):
+                    time.sleep(2)
+                    print(f"❌ Arquivo não encontrado: {arquivoEntrada}")
+                    break
 
-        df.reset_index(drop=True, inplace=True)
-        df["Quantidade prevista alterada"] = ""
-        df.at[0, "Quantidade prevista alterada"] = contagem_QPA(df)
+                df = pd.read_excel(arquivoEntrada, skiprows=2)
+                df = validar_grupo_usina(df, numeroGrupo)
+                df = valida_data(df, dataIni, dataFim)
 
-        df["Data do lote alterada"] = ""
-        df.at[0,"Data do lote alterada"] = contagem_DPA(df)
+                df['Alteração Simplificada'] = df['Alteração'].apply(simplificar_descricao)
 
-        df["Fase alterada"] = ""
-        df.at[0,"Fase alterada"] = contagem_FA(df)
+                df.reset_index(drop=True, inplace=True)
+                df["Quantidade prevista alterada"] = ""
+                df.at[0, "Quantidade prevista alterada"] = contagem_QPA(df)
 
-        df["Inclusão de item"] = ""
-        df.at[0,"Inclusão de item"] = contagem_INC(df)
+                df["Data do lote alterada"] = ""
+                df.at[0, "Data do lote alterada"] = contagem_DPA(df)
 
-        caminhoSaida = "C:/Users/thiago.santos/PycharmProjects/pythonProject1/AnaliseAlteracoesListaMestra"
-        arquivoSaida = gerar_nome_saida(caminhoSaida)
-        df.to_excel(arquivoSaida, index=False)
+                df["Fase alterada"] = ""
+                df.at[0, "Fase alterada"] = contagem_FA(df)
 
-        print("✅ Análise Completa!", f"Arquivo gerado: {arquivoSaida}")
-        print("E N C E R R A N D O . . .")
-        time.sleep(10)
-        exit()
-    except Exception as e:
-        print("Erro durante a execução da análise:", str(e))
+                df["Inclusão de item"] = ""
+                df.at[0, "Inclusão de item"] = contagem_INC(df)
 
-gerar_analise()
+                caminhoSaida = "C:/Users/thiago.santos/PycharmProjects/pythonProject1/AnaliseAlteracoesListaMestra"
+                arquivoSaida = gerar_nome_saida(caminhoSaida)
+                df.to_excel(arquivoSaida, index=False)
 
+                print("✅ Análise Completa!", f"Arquivo gerado: {arquivoSaida}")
+                time.sleep(2)
+                print("E N C E R R A N D O . . .")
+                time.sleep(2)
+
+                resposta = input("Deseja realizar outra análise? (s/n): ").strip().lower()
+                if resposta != 's':
+                    print("Programa finalizado.")
+                    break
+
+            except Exception as e:
+                print("Erro durante a execução da análise:", str(e))
+                resposta = input("Deseja tentar novamente? (s/n): ").strip().lower()
+                if resposta != 's':
+                    print("Programa finalizado.")
+                    break
+    gerar_analise()
+
+if __name__ == "__main__":
+    main()
 """
 ufvs = [
     "UFV ACOPIARA I E II",
@@ -140,7 +157,7 @@ ufvs = [
     "UFV AMPERE",
     "UFV ANDRADINA",
     "UFV ANGICOS I",
-    "UFV ANTA I, II E III",
+    "UFV ANTA I, II E III",+6
     "UFV ARAPOTI I, II E III",
     "UFV ARROIO DOS RATOS I",
     "UFV ARROIO DOS RATOS II",
